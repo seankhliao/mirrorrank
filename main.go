@@ -20,9 +20,8 @@ import (
 )
 
 type Mirror struct {
-	u    string
-	done bool
-	d    time.Duration
+	u string
+	d time.Duration
 }
 
 func main() {
