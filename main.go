@@ -133,14 +133,13 @@ loop:
 		go func(m string) {
 			var err error
 			defer func() {
-				if strings.Contains(err.Error(), "context deadline exceeded") {
-					// not wrapped?
-					err = errors.New("timeout")
-				}
 				if err != nil {
+					if strings.Contains(err.Error(), "context deadline exceeded") {
+						// not wrapped?
+						err = errors.New("timeout")
+					}
 					log.Error(err, "download community.db", "mirror", m)
 				}
-				_ = err
 				<-ch
 				wg.Done()
 			}()
