@@ -138,12 +138,12 @@ loop:
 						// not wrapped?
 						err = errors.New("timeout")
 					}
-					lg.Error("download community.db", "err", err, "mirror", m)
+					lg.Error("download extra.db", "err", err, "mirror", m)
 				}
 				<-ch
 				wg.Done()
 			}()
-			u := replacer.Replace(m + "/community.db")
+			u := replacer.Replace(m + "/extra.db")
 			t := time.Now()
 			r, err := client.Get(u)
 			if err != nil {
