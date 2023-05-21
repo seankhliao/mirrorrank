@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
@@ -15,8 +16,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/iand/logfmtr"
 )
 
 type Mirror struct {
@@ -48,7 +47,7 @@ func main() {
 	})
 	flag.Parse()
 
-	log := logfmtr.New()
+	lg := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	client := http.Client{
 		Timeout: 5 * time.Second,
@@ -78,7 +77,7 @@ func main() {
 
 		r, err := client.Get(u.String())
 		if err != nil {
-			log.Error(err, "get mirrorlist", "source", u.String())
+			lg.Error("get mirrorlist", "err", err, "source", u.String())
 			return
 		}
 		defer r.Body.Close()
@@ -87,7 +86,7 @@ func main() {
 		var err error
 		rawMirrorlist, err = os.Open(file)
 		if err != nil {
-			log.Error(err, "get mirrorlist file", "file", file)
+			lg.Error("get mirrorlist file", "err", err, "file", file)
 			return
 		}
 	}
@@ -111,7 +110,8 @@ loop:
 		}
 		rawMirrors = append(rawMirrors, mirror)
 	}
-	log.Info("got candidates", "mirrors", len(rawMirrors))
+
+	lg.Info("got candidates", "mirrors", len(rawMirrors))
 
 	// rank mirrors
 	collect := make(chan Mirror)
@@ -126,7 +126,7 @@ loop:
 	}()
 	ch := make(chan struct{}, parallel)
 	var wg sync.WaitGroup
-	replacer := strings.NewReplacer("$repo", "community", "$arch", "x86_64")
+	replacer := strings.NewReplacer("$repo", "extra", "$arch", "x86_64")
 	for i := range rawMirrors {
 		ch <- struct{}{}
 		wg.Add(1)
@@ -138,7 +138,7 @@ loop:
 						// not wrapped?
 						err = errors.New("timeout")
 					}
-					log.Error(err, "download community.db", "mirror", m)
+					lg.Error("download community.db", "err", err, "mirror", m)
 				}
 				<-ch
 				wg.Done()
@@ -156,7 +156,7 @@ loop:
 			}
 			s := time.Since(t)
 			collect <- Mirror{u: m, d: s}
-			log.Info("done", "time", s.Round(time.Millisecond), "mirror", m)
+			lg.Info("done", "time", s.Round(time.Millisecond), "mirror", m)
 		}(rawMirrors[i])
 	}
 	wg.Wait()
@@ -174,7 +174,7 @@ loop:
 	}
 	err := os.WriteFile(save, b.Bytes(), 0o644)
 	if err != nil {
-		log.Error(err, "write file", "file", save)
+		lg.Error("write file", "err", err, "file", save)
 		return
 	}
 }
