@@ -28,6 +28,7 @@ func main() {
 	var countries []string
 	var file, save string
 	var parallel, limit int
+	var timeout time.Duration
 	exclude := map[string]struct{}{
 		"checkdomain.de": {},
 	}
@@ -37,6 +38,7 @@ func main() {
 	flag.StringVar(&save, "s", "/etc/pacman.d/mirrorlist", "output file location")
 	flag.IntVar(&parallel, "p", 10, "parallel downloads")
 	flag.IntVar(&limit, "l", 5, "limit output")
+	flag.DurationVar(&timeout, "t", 5*time.Second, "timeout")
 	flag.Func("e", "exclude string (repeatable)", func(s string) error {
 		exclude[s] = struct{}{}
 		return nil
@@ -132,18 +134,18 @@ loop:
 		wg.Add(1)
 		go func(m string) {
 			var err error
+			u := replacer.Replace(m + "/extra.db")
 			defer func() {
 				if err != nil {
 					if strings.Contains(err.Error(), "context deadline exceeded") {
 						// not wrapped?
 						err = errors.New("timeout")
 					}
-					lg.Error("download extra.db", "err", err, "mirror", m)
+					lg.Error("download extra.db", "err", err, "mirror", u)
 				}
 				<-ch
 				wg.Done()
 			}()
-			u := replacer.Replace(m + "/extra.db")
 			t := time.Now()
 			r, err := client.Get(u)
 			if err != nil {
@@ -156,7 +158,7 @@ loop:
 			}
 			s := time.Since(t)
 			collect <- Mirror{u: m, d: s}
-			lg.Info("done", "time", s.Round(time.Millisecond), "mirror", m)
+			lg.Info("done", "time", s.Round(time.Millisecond), "mirror", u)
 		}(rawMirrors[i])
 	}
 	wg.Wait()
